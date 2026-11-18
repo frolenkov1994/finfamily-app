@@ -64,8 +64,17 @@ export default function Home() {
     if (error) { setMessage(error.message); return; }
     if (data) {
       setProfile(data); setMemberName(data.display_name);
-      const { data: familyData } = await supabase.from("families").select("invite_code").eq("id", data.family_id).single();
-      if (familyData) setInviteCode(familyData.invite_code);
+      const { data: familyData, error: familyError } = await supabase
+  .from("families")
+  .select("invite_code")
+  .eq("id", data.family_id)
+  .single();
+
+if (familyError) {
+  setMessage("Не удалось загрузить код семьи: " + familyError.message);
+} else {
+  setInviteCode(familyData?.invite_code || "");
+}
       await loadOperations(data.family_id);
     }
     else setProfile(null);
@@ -226,7 +235,26 @@ export default function Home() {
       <section className="panel">
         <div className="panel-head"><div><h2>Участники семьи</h2><p>Персональный вклад по операциям</p></div><Users size={20}/></div>
         {memberStats.length ? memberStats.map(m=><div className="member-row" key={m.name}><div><b>{m.name}</b><small>Доходы {money(m.income)} · Расходы {money(m.expenses)}</small></div><strong>{money(m.income-m.expenses)}</strong></div>) : <div className="empty">Пока нет операций.</div>}
-        <div className="family-code"><div><small>Код семьи для второго участника</small><b>{inviteCode}</b></div><button className="secondary" onClick={()=>navigator.clipboard.writeText(inviteCode)}><Copy size={15}/> Копировать</button></div>
+       <div className="family-code">
+  <div>
+    <small>Код семьи для второго участника</small>
+    <b>{inviteCode || "Код загружается..."}</b>
+  </div>
+  <button
+    className="secondary"
+    disabled={!inviteCode}
+    onClick={async () => {
+      try {
+        await navigator.clipboard.writeText(inviteCode);
+        setMessage("Код семьи скопирован!");
+      } catch {
+        setMessage("Не удалось скопировать код. Выделите его вручную.");
+      }
+    }}
+  >
+    <Copy size={15}/> Копировать
+  </button>
+</div>
         <p className="tiny">Передайте код второму участнику. Передавайте этот код только члену своей семьи. Для публичного запуска рекомендуется добавить срок действия и возможность смены кода.</p>
       </section>
       <section className="panel wide">
