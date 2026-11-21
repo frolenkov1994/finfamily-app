@@ -27,6 +27,7 @@ type Operation = {
   amount: number;
   operation_date: string;
   settled: boolean;
+  category: string | null;
 };
 
 const colors = ["#d99b42", "#7184ba", "#a2a9a5"];
@@ -62,6 +63,7 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<Operation["kind"]>("shared");
+  const [category, setCategory] = useState("Продукты");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [memberName, setMemberName] = useState("");
@@ -235,6 +237,7 @@ export default function Home() {
       member_name: profile.display_name,
       title: title.trim(),
       kind,
+      category,
       amount: Number(amount),
       operation_date: date,
       settled
@@ -302,26 +305,28 @@ export default function Home() {
 
   const balance = income - spent;
 
-  const pie = [
-    {
-      name: "Обязательные",
-      value: operations
-        .filter(o => o.kind === "mandatory" && o.settled)
-        .reduce((s, o) => s + Number(o.amount), 0)
-    },
-    {
-      name: "Общие",
-      value: operations
-        .filter(o => o.kind === "shared" && o.settled)
-        .reduce((s, o) => s + Number(o.amount), 0)
-    },
-    {
-      name: "Личные",
-      value: operations
-        .filter(o => o.kind === "personal" && o.settled)
-        .reduce((s, o) => s + Number(o.amount), 0)
-    }
-  ].filter(x => x.value > 0);
+  const expenseCategories = Array.from(
+    new Set(
+      operations
+        .filter(o => o.kind !== "income" && o.settled)
+        .map(o => o.category || (
+          o.kind === "mandatory" ? "Обязательные платежи" :
+          o.kind === "personal" ? "Личные расходы" : "Общие расходы"
+        ))
+    )
+  );
+
+  const pie = expenseCategories.map(name => ({
+    name,
+    value: operations
+      .filter(o => o.kind !== "income" && o.settled && (
+        (o.category || (
+          o.kind === "mandatory" ? "Обязательные платежи" :
+          o.kind === "personal" ? "Личные расходы" : "Общие расходы"
+        )) === name
+      ))
+      .reduce((sum, o) => sum + Number(o.amount), 0)
+  })).filter(item => item.value > 0);
 
   const members = Array.from(new Set(operations.map(o => o.member_name)));
 
@@ -761,13 +766,7 @@ export default function Home() {
                             <td>
                               <b>{op.title}</b>
                               <small>
-                                {op.kind === "income"
-                                  ? "Доход"
-                                  : op.kind === "mandatory"
-                                  ? "Обязательный платёж"
-                                  : op.kind === "shared"
-                                  ? "Общий расход"
-                                  : "Личный расход"}
+                                {op.category || (op.kind === "income" ? "Доход" : op.kind === "mandatory" ? "Обязательный платёж" : op.kind === "shared" ? "Общий расход" : "Личный расход")}
                               </small>
                             </td>
                             <td>{op.member_name}</td>
@@ -855,12 +854,27 @@ export default function Home() {
                     Тип
                     <select
                       value={kind}
-                      onChange={e => setKind(e.target.value as Operation["kind"])}
+                      onChange={e => { const nextKind = e.target.value as Operation["kind"]; setKind(nextKind); setCategory(nextKind === "income" ? "Зарплата" : "Продукты"); }}
                     >
                       <option value="income">Доход</option>
                       <option value="mandatory">Обязательный платёж</option>
                       <option value="shared">Общий расход</option>
                       <option value="personal">Личный расход</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Категория
+                    <select
+                      value={category}
+                      onChange={e => setCategory(e.target.value)}
+                    >
+                      {(kind === "income"
+                        ? ["Зарплата", "Премия", "Подработка", "Подарки", "Другое"]
+                        : ["Продукты", "Жильё и коммунальные услуги", "Транспорт", "Здоровье", "Одежда", "Развлечения", "Покупки для дома", "Обязательные платежи", "Другое"]
+                      ).map(item => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
                     </select>
                   </label>
 
@@ -925,13 +939,7 @@ export default function Home() {
                         <td>
                           <b>{op.title}</b>
                           <small>
-                            {op.kind === "income"
-                              ? "Доход"
-                              : op.kind === "mandatory"
-                              ? "Обязательный платёж"
-                              : op.kind === "shared"
-                              ? "Общий расход"
-                              : "Личный расход"}
+                            {op.category || (op.kind === "income" ? "Доход" : op.kind === "mandatory" ? "Обязательный платёж" : op.kind === "shared" ? "Общий расход" : "Личный расход")}
                           </small>
                         </td>
 
@@ -1016,4 +1024,3 @@ export default function Home() {
     </main>
   );
 }
-
